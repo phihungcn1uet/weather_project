@@ -1,0 +1,15 @@
+# Bỏ qua file cấu hình môi trường (Chứa API Key) - CỰC KỲ QUAN TRỌNG
+.env
+
+# Bỏ qua thư mục môi trường ảo (Thư viện Python rất nặng, không cần up lên)
+my_env/
+venv/
+env/
+
+# Bỏ qua các file rác của Python
+__pycache__/
+*.pyc
+
+# Bỏ qua database local (Dữ liệu cá nhân)
+*.db
+my_weather_data.db
