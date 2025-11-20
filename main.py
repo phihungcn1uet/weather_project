@@ -9,12 +9,17 @@ CITY_NAME = os.getenv('CITY_NAME')
 API_KEY = os.getenv('API_KEY')
 DB_CONNECTION_STRING = os.getenv("DB_CONNECTION_STRING")
 
+
 def main():
     # check api key
     if not API_KEY:
-        print('Can not find API key from .env file')
+        print('Missing API key')
         return
-
+    # check database connection
+    if not DB_CONNECTION_STRING:
+        print('Missing DB connection string')
+        return
+    
     # call data
     data = get_data.transform_data(CITY_NAME,API_KEY)
 

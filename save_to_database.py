@@ -5,14 +5,16 @@ from sqlalchemy import create_engine
 
 
 def save_log(dict_data,  db_connection_string, table_name = 'weather_logs'):
-    ENGINE = create_engine(db_connection_string)
+    
     if not dict_data:
         print("No data for saving")
         return
-    data_frame = pd.DataFrame([dict_data])
-
+    
     # save to database
     try:
+        ENGINE = create_engine(db_connection_string)
+        data_frame = pd.DataFrame([dict_data])
+
         data_frame.to_sql(
             name = table_name,
             con=ENGINE,
