@@ -1,5 +1,7 @@
 import requests
 import json
+# time function
+from datetime import datetime
 
 
 # call API function
@@ -45,9 +47,10 @@ def transform_data(city_name, api_key):
     try:
         cleaned_data = {
             #normal data
-            "condition" : data['weather'][0]['main'],
+            "time" : unix_to_real_time(data['dt']),
+            "weather" : data['weather'][0]['main'],
             "description" : data['weather'][0]['description'],
-            "temperature" : data['main']['temp'],
+            "temperature" : kelvin_to_celsius(data['main']['temp']),
             "humidity" : data['main']['humidity'],
 
             #air data
@@ -63,3 +66,12 @@ def transform_data(city_name, api_key):
     except KeyError as e:
         print(f"Error while cleaning JSON data: Key {e} missing")
         return None
+
+# convert function
+def kelvin_to_celsius(kelvin_temp):
+        celsius_temp = kelvin_temp - 273.15
+        return celsius_temp
+
+def unix_to_real_time(unix_time):
+        local_time = datetime.fromtimestamp(unix_time)
+        return local_time.strftime('%Y-%m-%d %H:%M:%S')
