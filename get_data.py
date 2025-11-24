@@ -47,6 +47,7 @@ def transform_data(city_name, api_key):
     try:
         cleaned_data = {
             #normal data
+            "city" : city_name,
             "time" : unix_to_real_time(data['dt']),
             "weather" : data['weather'][0]['main'],
             "description" : data['weather'][0]['description'],
