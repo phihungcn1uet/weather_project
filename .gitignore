@@ -13,3 +13,6 @@ __pycache__/
 # ignore local database
 *.db
 my_weather_data.db
+
+#ignore run log
+run_log.txt

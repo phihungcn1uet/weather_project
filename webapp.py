@@ -9,22 +9,22 @@ st.title("🌤️My weather data")
 
 # database connection
 load_dotenv()
-db_string = os.getenv('DB_CONNECTION_STRING')
+db_connection_string = os.getenv('DB_CONNECTION_STRING')
 
 # check connection
-if not db_string:
+if not db_connection_string:
     print('Unable to load from database to website')
     st.stop()
 
 # load data from Postgre SQL
 def load_data():
     try:
-        engine = create_engine(db_string)
-        query = 'SELECT * FROM weather_logs ORDER BY time DESC'
-        df = pd.read_sql(query, engine)
+        engine = create_engine(db_connection_string)
+        query = "SELECT * FROM weather_logs ORDER BY time DESC"
+        df = pd.read_sql(query,engine)
         return df
     except Exception as e:
-        st.error(f'Unable to get data from database: {e}')
+        st.error('unable to get data from database')
         return None
 
 #display on screen
@@ -39,6 +39,10 @@ if df is not None and not df.empty:
     # line chart for the fluctuation of temp per time
     st.subheader("Temperature fluctuation")
     st.line_chart(df, x='time', y='temperature')
+
+    #line chart for the fluctuation of pm2.5 per time
+    st.subheader('pm 2.5 concentration per time')
+    st.line_chart(df,x='time', y='pm2_5_index')
 
     # raw data display
     st.subheader("Detailed data")

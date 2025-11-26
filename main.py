@@ -2,6 +2,7 @@ import get_data
 import save_to_database
 import os
 from dotenv import load_dotenv
+import alert
 
 # get variable from .env file
 load_dotenv()
@@ -21,12 +22,16 @@ def main():
         return
     
     # call data
-    data = get_data.transform_data(CITY_NAME,API_KEY)
+    cleaned_data = get_data.transform_data(CITY_NAME,API_KEY)
 
-    # save to database
-    if data:
-        save_to_database.save_log(data, DB_CONNECTION_STRING)
+    # data handling
+    if cleaned_data:
+        # save data block
+        save_to_database.save_log(cleaned_data, DB_CONNECTION_STRING)
         print("Successful saving")
+        # alert block
+        warning_msg = alert.alert_condition(cleaned_data)
+        alert.send_message_to_devices(warning_msg)
     else:
         print("Failed to saving to the data")
 
