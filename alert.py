@@ -31,12 +31,14 @@ def send_message_to_devices(message):
 def alert_condition(data):
     time = data['time']
     pm25 = data['pm2_5_index']
+    pm10 = data['pm10_index']
     temp = data['temperature']
+    humidity = data['humidity']
     air_quality = data['aqi_index']
     warning_msg =f"At {time}\n"
     warning_msg +=f"The air quality index is {air_quality}\n"
     warning_msg += f"The PM2.5 dust index is {pm25}\n"
-    warning_msg += f"The temperature is {temp}\n"
+    warning_msg += f"The temperature is {temp}°C\n"
 
     return warning_msg
 
