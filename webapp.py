@@ -42,7 +42,7 @@ def display_city_details(df):
     col2.metric('Temperature',f'{round(latest['temperature'],2)}°C')
     col3.metric('PM2.5', f'{latest['pm2_5_index']}µg/m³')
     # line chart for the fluctuation of temp per time
-    st.subheader("Temperature fluctuation")
+    st.subheader("Pollution and temperature line chart")
     st.line_chart(
         city_df, 
         x='time', 
@@ -51,7 +51,7 @@ def display_city_details(df):
     )
 
     # 5. raw data table
-    with st.expander("Xem dữ liệu chi tiết"):
+    with st.expander("Detail statistic"):
         st.dataframe(city_df)
 
 # def color for map
@@ -88,8 +88,8 @@ def display_map_overview(df):
     ))
 def main():
     # titile and reload button
-    st.sidebar.title("Cấu hình")
-    if st.sidebar.button("🔄 Cập nhật dữ liệu"):
+    st.sidebar.title("Setting")
+    if st.sidebar.button("🔄 Update"):
         st.cache_data.clear()
         st.rerun()
     # loading data
