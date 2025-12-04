@@ -46,6 +46,9 @@ def transform_data(city_name, api_key):
     data_pollution = extract_pollution_data(lat,lon,api_key)
     try:
         cleaned_data = {
+            # coordinate for mapping
+            "lat" : lat,
+            "lon" : lon,
             #normal data
             "city" : city_name,
             "time" : unix_to_real_time(data['dt']),

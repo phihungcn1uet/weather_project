@@ -19,7 +19,25 @@ CITIES = [
     "Seoul", 
     "Tokyo", 
     "London", 
-    "New York"
+    "New York", 
+    "Bangkok", "Chiang Mai",     
+    "Singapore",                  
+    "Kuala Lumpur",               
+    "Jakarta", "Bali",            
+    "Manila",                     
+    "Phnom Penh",                
+    "Vientiane",                  
+    "Yangon",                     
+    "Osaka", "Kyoto",    
+    "Busan",             
+    "Beijing", "Shanghai", "Guangzhou", "Shenzhen", 
+    "Hong Kong", "Macau",         
+    "Taipei",                    
+    "New Delhi", "Mumbai", "Bangalore",
+    "Dhaka",                      
+    "Colombo",                    
+    "Kathmandu",                  
+    "Islamabad", "Karachi"      
 ]
 
 def main():
@@ -33,9 +51,9 @@ def main():
         return
     
     # call data
-    for CITY_NAME in CITIES:
+    for city_name in CITIES:
         try:
-            cleaned_data = get_data.transform_data(CITY_NAME,API_KEY)
+            cleaned_data = get_data.transform_data(city_name,API_KEY)
 
             # data handling
             if cleaned_data:
@@ -44,7 +62,7 @@ def main():
                 print("Successful saving")
                 
                 # alert block for ha noi weather
-                if(CITY_NAME == 'Hanoi'):
+                if(city_name == 'Hanoi'):
                     warning_msg = alert.alert_condition(cleaned_data)
                     air_alert = analyzer.air_condition(cleaned_data['pm2_5_index'])
                     temp_alert = analyzer.feeling(cleaned_data['temperature'], cleaned_data['humidity'])
@@ -55,7 +73,7 @@ def main():
             else:
                 print("Failed to saving to the data")
         except Exception as e:
-            print(f"   [ERROR] Lỗi tại {city}: {e}")
+            print(f"   [ERROR] Lỗi tại {city_name}: {e}")
             continue
     print('swepping data successful')
 
