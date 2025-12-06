@@ -78,16 +78,20 @@ def main():
     
     # multithreading for calling API
     with ThreadPoolExecutor(max_workers=5) as executor:
-        # futures = {executor.submit(handling_data, city_name): city_name for city_name in CITIES}
+        # normal logic for multi threading
+            # for city in CITIES:
+            # executor.submit(handling_data,city)
 
-        # for future in as_completed(futures):
-        #     city_name = futures[future] 
-        #     try:
-        #         result = future.result() 
-        #     except Exception as exc:
-        #         print(f'❌ {city_name} bị lỗi: {exc}')
-        for city in CITIES:
-            executor.submit(handling_data,city)
+        # advance method for unexpected error
+        futures = {executor.submit(handling_data, city_name): city_name for city_name in CITIES}
+
+        for future in as_completed(futures):
+            city_name = futures[future] 
+            try:
+                result = future.result() 
+            except Exception as exc:
+                print(f'{city_name} Error in: {exc}')
+        
     
     print('swepping data successful')
 
