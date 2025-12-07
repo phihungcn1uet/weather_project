@@ -1,41 +1,60 @@
 import streamlit as st
+import requests
 import pandas as pd
 import pydeck as pdk
-from sqlalchemy import create_engine
-import os
-from dotenv import load_dotenv
 
 
-# database connection
-load_dotenv()
-db_connection_string = os.getenv('DB_CONNECTION_STRING')
+API_URL =  "http://127.0.0.1:8000"
+# # database connection
+# load_dotenv()
+# db_connection_string = os.getenv('DB_CONNECTION_STRING')
 
-# check connection
-if not db_connection_string:
-    print('Unable to load from database to website')
-    st.stop()
+# # check connection
+# if not db_connection_string:
+#     print('Unable to load from database to website')
+#     st.stop()
 
 # load data from Postgre SQL
-def load_data():
+# def load_data():
+#     try:
+#         engine = create_engine(db_connection_string)
+#         query = "SELECT * FROM weather_logs ORDER BY time DESC"
+#         df = pd.read_sql(query,engine)
+#         return df
+#     except Exception as e:
+#         st.error('unable to get data from database')
+#         return None
+
+def get_cities_from_api():
     try:
-        engine = create_engine(db_connection_string)
-        query = "SELECT * FROM weather_logs ORDER BY time DESC"
-        df = pd.read_sql(query,engine)
-        return df
-    except Exception as e:
-        st.error('unable to get data from database')
-        return None
+        response = requests.get(f"{API_URL}/cities")
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except:
+        return []
+
+def get_weather_for_each_city(city_name):
+    try:
+        response = requests.get(f"{API_URL}/weather/{city_name}")
+        if response.status_code == 200:
+            data = response.json()
+            return pd.DataFrame(data)
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
 
 # city's details
-def display_city_details(df):
+def display_city_details(city_df,city_name):
     st.markdown("---")
-     # slide bar for cities choosing
-    available_cities = df['city'].unique()
-    selected_city = st.sidebar.selectbox("📍 Cities:", available_cities)
-    city_df = df[df['city'] == selected_city]
+    #  # slide bar for cities choosing
+    # available_cities = df['city'].unique()
+    # selected_city = st.sidebar.selectbox("📍 Cities:", available_cities)
+    # city_df = df[df['city'] == selected_city]
 
     latest = city_df.iloc[0]
-    st.title(f"🌤️ Weather in {selected_city}")
+    st.title(f"🌤️ Weather in {city_name}")
 
     col1,col2,col3 = st.columns(3)
     col1.metric('City', latest['city'])
@@ -61,13 +80,26 @@ def get_color(pm25):
         return [255, 0, 0, 200]                    # Red
 
 # map display
-def display_map_overview(df):
+def display_map_overview(cities):
     st.subheader('Pollution map')
-    map_data = df.sort_values('time', ascending=False).groupby('city').head(1)
-    map_data['color'] = map_data['pm2_5_index'].apply(get_color)
+    
+    # get the newest list
+    map_data = []
+    for city in cities:
+        df = get_weather_for_each_city(city)
+        if not df.empty:
+            map_data.append(df.iloc[0])
+
+    # convert list to data frame
+    map_df = pd.DataFrame(map_data)
+
+    if not map_data:
+        return
+
+    map_df['color'] = map_df['pm2_5_index'].apply(get_color)
     layer = pdk.Layer(
         "ColumnLayer",
-        data=map_data,
+        data=map_df,
         get_position=["lon", "lat"],
         get_elevation="pm2_5_index",
         elevation_scale=200,
@@ -94,13 +126,17 @@ def main():
         st.rerun()
     # loading data
     st.write('Loading from database')
-    df = load_data()
-    # display on web screen
-    if df is not None and not df.empty:
-        display_map_overview(df)
-        display_city_details(df)
-    else:
-        st.warning("empty database")
+    cities = get_cities_from_api()
+    if not cities:
+        st.warning("Không tìm thấy thành phố nào hoặc API bị lỗi.")
+        return
+    display_map_overview(cities)
+
+    # city details
+    selected_city = st.sidebar.selectbox("📍 Cities:", cities)
+    if selected_city:
+        city_df = get_weather_for_each_city(selected_city)
+        display_city_details(city_df,selected_city)
 
 if __name__ == "__main__":
     main()
