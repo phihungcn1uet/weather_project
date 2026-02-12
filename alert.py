@@ -1,44 +1,43 @@
-import requests
-import os
-from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from database import DatabaseManager
+from logger import setup_logger
+from config import Config
 
-load_dotenv()
-token = os.getenv("TOKEN")
-chat_id = os.getenv("CHAT_ID")
+logger = setup_logger(__name__)
+app = FastAPI()
 
-# sending function
-def send_message_to_devices(message):
-    if not token or not chat_id:
-        print("Wrong telegram token or chat id")
-        return
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown" 
-    }
+# Initialize database manager
+try:
+    db_manager = DatabaseManager(Config.DB_CONNECTION_STRING)
+except Exception as e:
+    logger.error(f"Failed to initialize database: {e}")
 
+@app.get("/cities")
+def read_cities():
+    """Get list of all cities with weather data"""
     try:
-        response = requests.post(url, json=payload)
-        if response.status_code == 200:
-            print("Send alert to Telegram successful")
-        else:
-            print(f'Failed to send alert:{response.text}')
+        cities = db_manager.get_distinct_cities()
+        logger.info(f"Retrieved {len(cities)} cities")
+        return cities
     except Exception as e:
-        print(f'Error while connecting to Telegram:{e}')
+        logger.error(f"Error fetching cities: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-# alert condition
-def alert_condition(data):
-    time = data['time']
-    pm25 = data['pm2_5_index']
-    pm10 = data['pm10_index']
-    temp = data['temperature']
-    humidity = data['humidity']
-    air_quality = data['aqi_index']
-    warning_msg =f"At {time}\n"
-    warning_msg +=f"The air quality index is {air_quality}\n"
-    warning_msg += f"The PM2.5 dust index is {pm25}\n"
-    warning_msg += f"The temperature is {temp}°C\n"
+@app.get("/weather/{city_name}")
+def get_weather_for_city(city_name: str):
+    """Get weather data for a specific city (SQL injection safe)"""
+    if not city_name or len(city_name) < 2:
+        raise HTTPException(status_code=400, detail="Invalid city name")
+    
+    try:
+        weather_data = db_manager.get_city_weather(city_name)
+        logger.info(f"Retrieved weather data for {city_name}")
+        return weather_data
+    except Exception as e:
+        logger.error(f"Error fetching weather for {city_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    return warning_msg
-
+@app.get("/health")
+def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
