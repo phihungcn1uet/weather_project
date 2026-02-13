@@ -1,100 +1,94 @@
 import get_data
 import save_to_database
-import os
-import time
-from concurrent.futures import ThreadPoolExecutor
-from dotenv import load_dotenv
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import alert
-import analyzer
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from logger import setup_logger
+from config import Config
+from metrics import MetricsCollector
+from exceptions import ConfigError
 
-# get variable from .env file
-load_dotenv()
-API_KEY = os.getenv('API_KEY')
-DB_CONNECTION_STRING = os.getenv("DB_CONNECTION_STRING")
+logger = setup_logger(__name__)
+metrics = MetricsCollector()
 
-# cities's list 
-CITIES = [
-    "Hanoi", 
-    "Ho Chi Minh City", 
-    "Da Nang", 
-    "Seoul", 
-    "Tokyo", 
-    "London", 
-    "New York", 
-    "Bangkok", "Chiang Mai",     
-    "Singapore",                  
-    "Kuala Lumpur",               
-    "Jakarta", "Bali",            
-    "Manila",                     
-    "Phnom Penh",                
-    "Vientiane",                  
-    "Yangon",                     
-    "Osaka", "Kyoto",    
-    "Busan",             
-    "Beijing", "Shanghai", "Guangzhou", "Shenzhen", 
-    "Hong Kong", "Macau",         
-    "Taipei",                    
-    "New Delhi", "Mumbai", "Bangalore",
-    "Dhaka",                      
-    "Colombo",                    
-    "Kathmandu",                  
-    "Islamabad", "Karachi"      
-]
-
-def handling_data(city_name):
+def handle_city_data(city_name: str) -> dict:
+    """Process weather data for a single city"""
     try:
-        cleaned_data = get_data.transform_data(city_name,API_KEY)
-        # data handling
-        if cleaned_data:
-            # save data block
-            save_to_database.save_log(cleaned_data, DB_CONNECTION_STRING)
-            print("Successful saving")
-                    
-            # alert block for ha noi weather
-            if(city_name == 'Hanoi'):
-                warning_msg = alert.alert_condition(cleaned_data)
-                air_alert = analyzer.air_condition(cleaned_data['pm2_5_index'])
-                temp_alert = analyzer.feeling(cleaned_data['temperature'], cleaned_data['humidity'])
-                warning_msg += f'The air condition is {air_alert}\n'
-                warning_msg += f"Feeling like {temp_alert[0]} and {temp_alert[1]}"
-                alert.send_message_to_devices(warning_msg)
-
-        else:
-            print("Failed to saving to the data")
+        logger.info(f"Processing data for {city_name}")
+        metrics.record_api_call()
+        
+        # Fetch and transform data
+        cleaned_data = get_data.transform_data(city_name, Config.API_KEY)
+        
+        if not cleaned_data:
+            logger.warning(f"No data received for {city_name}")
+            metrics.record_save(False)
+            return {"city": city_name, "status": "failed", "reason": "No data"}
+        
+        # Save to database
+        success = save_to_database.save_log(cleaned_data, Config.DB_CONNECTION_STRING)
+        metrics.record_save(success)
+        
+        if not success:
+            return {"city": city_name, "status": "failed", "reason": "Save failed"}
+        
+        # Send alert for Hanoi
+        if city_name.lower() == 'hanoi':
+            alert.send_detailed_alert(cleaned_data)
+        
+        logger.info(f"Successfully processed {city_name}")
+        return {"city": city_name, "status": "success"}
+    
     except Exception as e:
-        print(f"   [ERROR] Lỗi tại {city_name}: {e}")
-        return
+        logger.error(f"Error processing {city_name}: {e}")
+        metrics.record_error(f"{city_name}: {str(e)}")
+        metrics.record_save(False)
+        return {"city": city_name, "status": "error", "reason": str(e)}
 
 def main():
-    # check api key
-    if not API_KEY:
-        print('Missing API key')
-        return
-    # check database connection
-    if not DB_CONNECTION_STRING:
-        print('Missing DB connection string')
-        return
+    """Main execution function"""
+    logger.info("Starting weather data collection")
     
-    # multithreading for calling API
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        # normal logic for multi threading
-            # for city in CITIES:
-            # executor.submit(handling_data,city)
-
-        # advance method for unexpected error
-        futures = {executor.submit(handling_data, city_name): city_name for city_name in CITIES}
-
-        for future in as_completed(futures):
-            city_name = futures[future] 
-            try:
-                result = future.result() 
-            except Exception as exc:
-                print(f'{city_name} Error in: {exc}')
+    # Validate configuration
+    config_errors = Config.validate()
+    if config_errors:
+        error_msg = "Configuration errors: " + ", ".join(config_errors)
+        logger.error(error_msg)
+        raise ConfigError(error_msg)
+    
+    results = []
+    
+    # Process cities with multithreading
+    with ThreadPoolExecutor(max_workers=Config.MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(handle_city_data, city): city 
+            for city in Config.CITIES
+        }
         
+        for future in as_completed(futures):
+            city_name = futures[future]
+            try:
+                result = future.result()
+                results.append(result)
+                status = result.get('status', 'unknown')
+                logger.info(f"{city_name}: {status}")
+            except Exception as e:
+                logger.error(f"Unexpected error for {city_name}: {e}")
+                results.append({"city": city_name, "status": "error", "reason": str(e)})
     
-    print('swepping data successful')
+    # Print metrics report
+    report = metrics.get_report()
+    logger.info(f"Collection complete. Success rate: {report['success_rate']:.2f}%")
+    logger.info(f"Results summary: {len([r for r in results if r['status'] == 'success'])}/{len(Config.CITIES)} successful")
+    
+    return results
 
-# start point of programming
 if __name__ == "__main__":
-    main()
+    try:
+        results = main()
+        logger.info("Weather data collection completed successfully")
+    except ConfigError as e:
+        logger.error(f"Configuration error: {e}")
+        exit(1)
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        exit(1)
