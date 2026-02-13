@@ -1,43 +1,48 @@
-from fastapi import FastAPI, HTTPException
-from database import DatabaseManager
+from notifications import NotificationManager
+from analyzer import air_condition, feeling
 from logger import setup_logger
 from config import Config
 
 logger = setup_logger(__name__)
-app = FastAPI()
 
-# Initialize database manager
-try:
-    db_manager = DatabaseManager(Config.DB_CONNECTION_STRING)
-except Exception as e:
-    logger.error(f"Failed to initialize database: {e}")
-
-@app.get("/cities")
-def read_cities():
-    """Get list of all cities with weather data"""
+def send_alert(data: dict) -> bool:
+    """Send weather alert via Telegram"""
     try:
-        cities = db_manager.get_distinct_cities()
-        logger.info(f"Retrieved {len(cities)} cities")
-        return cities
+        notifier = NotificationManager(Config.TELEGRAM_TOKEN, Config.TELEGRAM_CHAT_ID)
+        return notifier.send_alert(data)
     except Exception as e:
-        logger.error(f"Error fetching cities: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        logger.error(f"Failed to send alert: {e}")
+        return False
 
-@app.get("/weather/{city_name}")
-def get_weather_for_city(city_name: str):
-    """Get weather data for a specific city (SQL injection safe)"""
-    if not city_name or len(city_name) < 2:
-        raise HTTPException(status_code=400, detail="Invalid city name")
-    
+def format_alert_message(data: dict) -> str:
+    """Format detailed alert message with analysis"""
     try:
-        weather_data = db_manager.get_city_weather(city_name)
-        logger.info(f"Retrieved weather data for {city_name}")
-        return weather_data
+        air_qual = air_condition(data['pm2_5_index'])
+        temp_feel, humidity_feel = feeling(data['temperature'], data['humidity'])
+        
+        message = f"*⚠️ Weather Alert - {data['city']}*\n"
+        message += f"📍 Time: {data['time']}\n\n"
+        message += f"🌡️ Temperature: {data['temperature']}°C (feels {temp_feel})\n"
+        message += f"💧 Humidity: {data['humidity']}% ({humidity_feel})\n"
+        message += f"☁️ Weather: {data['weather']} - {data['description']}\n\n"
+        message += f"*🌫️ Air Quality:*\n"
+        message += f"├ AQI Index: {data['aqi_index']}\n"
+        message += f"├ PM2.5: {data['pm2_5_index']}µg/m³ ({air_qual})\n"
+        message += f"├ PM10: {data['pm10_index']}µg/m³\n"
+        message += f"├ NO₂: {data['NO2_index']}µg/m³\n"
+        message += f"└ O₃: {data['O3_index']}µg/m³\n"
+        
+        return message
     except Exception as e:
-        logger.error(f"Error fetching weather for {city_name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        logger.error(f"Error formatting alert message: {e}")
+        return "Weather Alert - Unable to format message"
 
-@app.get("/health")
-def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+def send_detailed_alert(data: dict) -> bool:
+    """Send detailed weather alert"""
+    try:
+        message = format_alert_message(data)
+        notifier = NotificationManager(Config.TELEGRAM_TOKEN, Config.TELEGRAM_CHAT_ID)
+        return notifier.send_message(message)
+    except Exception as e:
+        logger.error(f"Failed to send detailed alert: {e}")
+        return False
